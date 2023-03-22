@@ -150,6 +150,8 @@ def _docker_run(
                 'The image may run with poor performance or fail if run via emulation.'
             )
     docker_kwargs = args.docker_kwargs or {}
+    print(f' ARGUMENTS TO client.containers.run =====> uses_img: {uses_img}, _args {_args}, ports {ports}, name {container_name}, volumes {_volumes}, network_mode {net_mode},'
+          f'entrypoint {args.entrypoint}, __docker_host__ {__docker_host__}, device_requests {device_requests}, environment {envs}, docker_kwargs {docker_kwargs} ')
     container = client.containers.run(
         uses_img,
         _args,
@@ -323,6 +325,7 @@ class ContainerPod(BasePod):
         client = docker.from_env()
         try:
             network = get_docker_network(client)
+            print(f' docker network {network}')
 
             if (
                 self.args.docker_kwargs
@@ -330,15 +333,19 @@ class ContainerPod(BasePod):
                 and __docker_host__ in self.args.docker_kwargs['extra_hosts']
             ):
                 ctrl_host = __docker_host__
+                print(f' A')
             elif network:
                 # If the caller is already in a docker network, replace ctrl-host with network gateway
                 try:
                     ctrl_host = client.networks.get(network).attrs['IPAM']['Config'][0][
                         'Gateway'
                     ]
+                    print(f' B')
                 except:
+                    print(f' C')
                     ctrl_host = __docker_host__
             else:
+                print(f' D {self.args.host}')
                 ctrl_host = self.args.host
 
             if self.args.pod_role == PodRoleType.GATEWAY:
@@ -352,6 +359,7 @@ class ContainerPod(BasePod):
         finally:
             client.close()
 
+        print(f' Output of _get_control_address => {net_node} and {runtime_ctrl_address}')
         return net_node, runtime_ctrl_address
 
     def _get_network_for_dind_linux(self, client: 'DockerClient', ctrl_address: str):
@@ -366,7 +374,9 @@ class ContainerPod(BasePod):
             net_mode = 'host'
             try:
                 bridge_network = client.networks.get('bridge')
+                print(f' bridge_network {bridge_network}')
                 if bridge_network:
+                    print(bridge_network.attrs["IPAM"]["Config"][0])
                     if self.args.pod_role == PodRoleType.GATEWAY:
                         runtime_ctrl_address = f'{bridge_network.attrs["IPAM"]["Config"][0]["Gateway"]}:{self.args.port[0]}'
                     else:
@@ -376,7 +386,7 @@ class ContainerPod(BasePod):
                     f'Unable to set control address from "bridge" network: {ex!r}'
                     f' Control address set to {runtime_ctrl_address}'
                 )
-
+        print(f' Output of _get_network_for_dind_linux => {net_mode} and {runtime_ctrl_address}')
         return net_mode, runtime_ctrl_address
 
     @property
