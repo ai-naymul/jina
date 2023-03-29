@@ -92,16 +92,14 @@ def _docker_run(
             'gpus',
         },
     )
-    img_not_found = False
 
     try:
-        client.images.get(uses_img)
-    except docker.errors.ImageNotFound:
-        logger.error(f'can not find local image: {uses_img}')
-        img_not_found = True
-
-    if img_not_found:
-        raise BadImageNameError(f'image: {uses_img} can not be found local & remote.')
+        r = client.images.pull(uses_img)
+        logger.info(r)
+    except docker.errors.APIError as err:
+        logger.error(f'can not pull image: {uses_img}')
+        logger.error(err)
+        raise err
 
     _volumes = {}
     if not getattr(args, 'disable_auto_volume', None) and not getattr(
@@ -246,8 +244,10 @@ def run(
 
         def _is_ready():
             from jina.serve.runtimes.servers import BaseServer
+
             return BaseServer.is_ready(
-                ctrl_address=runtime_ctrl_address, protocol=getattr(args, 'protocol', ["grpc"])[0]
+                ctrl_address=runtime_ctrl_address,
+                protocol=getattr(args, 'protocol', ["grpc"])[0],
             )
 
         def _is_container_alive(container) -> bool:
